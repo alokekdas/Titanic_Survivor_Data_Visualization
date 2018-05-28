@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="http://dimplejs.org/dist/dimple.v2.3.0.min.js"></script>
+<head>
+<title>Titanic Dataset Visualization</title>
+<script>
+   "use strict";
+
+   /* --------------------- 
+     Helper function:
+       Convert the 'Age' value to a decimal value,
+       Add a column 'Count' with an entry of '1'
+       in each row,
+       When the embarkation data is missing, insert 'NA'
+   ------------------------ */
+   function type(data){
+       data.PassengerId = +data.PassengerId;
+       data.Age = +data.Age;
+       data.Count = 1;
+       if (data.Embarked == ""){
+           data.Embarked = "NA";
+       }
+       var composite = data.Sex + "_class" + data.Pclass;
+       data.Composite = composite;
+       return data;
+   }
+
+   
+  /* -----------------------
+     Process the gender data and plot to show survival
+     for the genders.
+  ------------------------- */  
+  function draw_gender_bars(data) { 
+
+      //Clear the content of the svg element
+          svg.selectAll("*").remove();
+
+      // Dimple.js Chart construction code
+
+          var myChart = new dimple.chart(svg, data);
+          var x = myChart.addCategoryAxis("x", "Survived"); 
+          x.addOrderRule([0, 1]);
+
+      // Show the survival count as a number
+          var y = myChart.addMeasureAxis("y", "Count");
+
+          x.title = "Survival Count by Gender";
+          var cnt = myChart.addSeries("Sex", dimple.plot.bar);
+          myChart.addLegend(400, 30, 50, 200, "right");
+
+      // Design mouse hover functionality (overwrite default)
+          cnt.addEventHandler("mouseover", onhover);
+          cnt.addEventHandler("mouseout", onleave);
+
+          var draw_chart = myChart.draw(1000);
+
+      // Change the labels on the x-axis
+          var myshapes = x.shapes;
+          myshapes.selectAll("text").text(function(d){
+                  if (d === '0'){return "Not Survived";};
+                  if (d === '1'){return "Survived";};
+               });
+
+      // Displays tool tips on mouse hover
+
+          // Variable used by both onhover and onleave
+          var popup;
+
+          function onhover(e){
+          // Get the properties of the selected shape
+             var selx = parseFloat(e.selectedShape.attr("x"));
+             var sely = parseFloat(e.selectedShape.attr("y"));
+
+         // Set the size and position of the popup
+             var width = 100;
+             var height = 40;
+             var x = selx + 10;
+             var y = sely - height/2;
+
+             var gender = e.seriesValue[0];
+             var serv = e.xValue;
+             var passengers = dimple.filterData(data, "Survived", serv);
+             var cnt_total = passengers.length;
+             passengers = dimple.filterData(passengers, "Sex", gender);
+             var cnt = passengers.length;
+             var percentage = (cnt/cnt_total * 100).toPrecision(2);
+        // Append a group element
+             popup = svg.append("g");
+
+        // Append a rect element to encompas the message
+             popup.append("rect")
+                .attr("x", x + 5)
+                .attr("y", y - 5)
+                .attr("rx", 5)
+                .attr("ry", 5)
+                .attr("width", width)
+                .attr("height", height)
+                .style("stroke", "black")
+                .style("stroke-width", 0.5)
+                .attr("fill", "white");
+
+        // Append a text element to show the tooltips
+             popup.append("text")
+                .attr("x", x + 10)
+                .attr("y", y +10)
+                .style("font-size", 12)
+                .text("Sex: " + gender)
+                .append("tspan")
+                .attr("x", x+ 10)
+                .attr("y", y + 20)
+                .style("font-size", 12)
+                .text("Count: " + cnt + " (" + percentage + "%)")
+                .append("tspan")
+                .attr("x", x+ 10)
+                .attr("y", y + 30)
+                .style("font-size", 12)
+                .text(function(){
+                     if (serv === "0") return "Not Survived";
+                     if (serv === "1") return "Survived";
+                 });
+          }
+
+          function onleave(){
+          // Function to handle mouse exit event
+             if (popup != null){
+                popup.remove();
+             }
+          }        
+  }
+  
+  /* -----------------------
+     Function to plot the passenger data per port of 
+     embarkation.
+  ------------------------- */
+  function draw_embark_bars(data) {
+     
+     // Clear the content of the svg element
+          svg.selectAll("*").remove();
+
+     // Dimple.js Chart construction code
+
+          var myChart = new dimple.chart(svg, data);
+          var x = myChart.addCategoryAxis("x", "Embarked"); 
+          x.addOrderRule([3, 2, 1]);
+
+          myChart.addMeasureAxis("y", "Count");
+
+          x.title = "Passenger Survival by Port of Embarkation";
+          var cnt = myChart.addSeries("Survived", dimple.plot.bar);
+          myChart.assignColor(0, "indianred", "rgb(107,148,177)", 0.5)
+          myChart.assignColor(1, "yellowgreen", "rgb(107,148,177)", 0.5)
+
+          var myLegend = myChart.addLegend(370, 50, 50, 200, "right", cnt);
+
+     // Design mouse hover functionality (overwrite default)
+          cnt.addEventHandler("mouseover", onhover);
+          cnt.addEventHandler("mouseout", onleave);
+
+          var draw_chart = myChart.draw(1000);
+
+     // Change the x-axis labels
+          var myshapes = x.shapes;
+          myshapes.selectAll("text").text(function(d){
+                  if (d === 'S'){return "Southampton";};
+                  if (d === 'C'){return "Cherbourg";};
+                  if (d === 'Q'){return "Queenstown";};
+                  if (d === 'NA'){return "NA";};
+               });
+
+     // Change the text for the legends
+          var myLegendShapes = myLegend.shapes;
+          myLegendShapes.selectAll("text").text(function(d){
+                   if (d.key == "0"){return "Not Survived";};
+                   if (d.key == "1"){return "Survived";};
+
+          });
+
+     // Design the mouse hover event handler
+
+          // Variable used by both onhover and onleave
+          var popup;
+
+          function onhover(e){
+             // Get the properties of the selected shape
+             var selx = parseFloat(e.selectedShape.attr("x"));
+             var sely = parseFloat(e.selectedShape.attr("y"));
+
+             // Set the size and position of the popup
+             var width = 102;
+             var height = 40;
+             var x = selx + 10;
+             var y = sely - height/2;
+
+             var serv = e.seriesValue[0];
+             var port = e.xValue;
+             var passengers = dimple.filterData(data, "Embarked", port);
+             var cnt_total = passengers.length;
+             passengers = dimple.filterData(passengers, "Survived", serv);
+             var cnt = passengers.length;
+             var percentage = (cnt/cnt_total * 100).toPrecision(3);
+
+             popup = svg.append("g");
+             popup.append("rect")
+                .attr("x", x + 5)
+                .attr("y", y - 5)
+                .attr("rx", 5)
+                .attr("ry", 5)
+                .attr("width", width)
+                .attr("height", height)
+                .style("stroke", "black")
+                .style("stroke-width", 0.5)
+                .attr("fill", "white");
+
+             popup.append("text")
+                .attr("x", x + 10)
+                .attr("y", y +10)
+                .style("font-size", 12)
+                .text("Port: " + port)
+                .append("tspan")
+                .attr("x", x+ 10)
+                .attr("y", y + 20)
+                .style("font-size", 12)
+                .text("Count: " + cnt + " (" + percentage + "%)")
+                .append("tspan")
+                .attr("x", x+ 10)
+                .attr("y", y + 30)
+                .style("font-size", 12)
+                .text(function(){
+                     if (serv === "0") return "Not Survived";
+                     if (serv === "1") return "Survived";
+                 });
+          }
+
+     // Design the mouse out event handler
+          function onleave(){
+             if (popup != null){
+                popup.remove();
+             }
+          }        
+
+  }
+
+  /* --------------------------
+     Function to plot the passenger data 
+     with respect to the cabin classes.
+  ---------------------------- */  
+  function draw_pclass_bars(data) {
+     
+     // Clear the content of the svg element
+          svg.selectAll("*").remove();
+
+     // Dimple.js construction code
+          var myChart = new dimple.chart(svg, data);
+          var x = myChart.addCategoryAxis("x", "Survived"); 
+          x.addOrderRule([0, 1]);
+
+     // Show the survival count as a number
+          var y = myChart.addMeasureAxis("y", "Count");
+          
+          x.title = "Survival Count by Cabin Class";
+          var cnt = myChart.addSeries("Pclass", dimple.plot.bar);
+          cnt.addOrderRule([1, 2, 3]);
+
+          myChart.assignColor(1, "peru", "rgb(107,148,177)", 0.5)
+          myChart.assignColor(2, "green", "rgb(107,148,177)", 0.5)
+          myChart.assignColor(3, "paleviolet", "rgb(107,148,177)", 0.5)
+
+          myChart.addLegend(400, 30, 50, 200, "right");
+
+          cnt.addEventHandler("mouseover", onhover);
+          cnt.addEventHandler("mouseout", onleave);
+
+          var draw_chart = myChart.draw(1000);
+
+    // Assign labels to the x-axis
+          var myshapes = x.shapes;
+          myshapes.selectAll("text").text(function(d){
+                  if (d === '0'){return "Not Survived";};
+                  if (d === '1'){return "Survived";};
+               });
+         
+    // Assign the labels to the legends
+          d3.select(".dimple-legend.dimple-legend-text.dimple-1").node().innerHTML = "Class 1";
+          d3.select(".dimple-legend.dimple-legend-text.dimple-2").node().innerHTML = "Class 2";
+          d3.select(".dimple-legend.dimple-legend-text.dimple-3").node().innerHTML = "Class 3";
+
+    // Event handler for mouse hover
+         // Variable 'popup' is used both by onhover and onleave
+         var popup;
+
+         function onhover(e){
+             // Get the properties of the selected shape
+             var selx = parseFloat(e.selectedShape.attr("x"));
+             var sely = parseFloat(e.selectedShape.attr("y"));
+
+             // Set the size and position of the popup
+             var width = 102;
+             var height = 40;
+             var x = selx + 10;
+             var y = sely - height/2;
+
+             var pclass = e.seriesValue[0];
+             var serv = e.xValue;
+             var passengers = dimple.filterData(data, "Survived", serv);
+             var cnt_total = passengers.length;
+             passengers = dimple.filterData(passengers, "Pclass", pclass);
+             var cnt = passengers.length;
+             var percentage = (cnt/cnt_total * 100).toPrecision(2);
+
+             popup = svg.append("g");
+             popup.append("rect")
+                .attr("x", x + 5)
+                .attr("y", y - 5)
+                .attr("rx", 5)
+                .attr("ry", 5)
+                .attr("width", width)
+                .attr("height", height)
+                .style("stroke", "black")
+                .style("stroke-width", 0.5)
+                .attr("fill", "white");
+
+             popup.append("text")
+                .attr("x", x + 10)
+                .attr("y", y +10)
+                .style("font-size", 12)
+                .text("Pclass: " + pclass)
+                .append("tspan")
+                .attr("x", x+ 10)
+                .attr("y", y + 20)
+                .style("font-size", 12)
+                .text("Count: " + cnt + " (" + percentage + "%)")
+                .append("tspan")
+                .attr("x", x+ 10)
+                .attr("y", y + 30)
+                .style("font-size", 12)
+                .text(function(){
+                     if (serv === "0") return "Not Survived";
+                     if (serv === "1") return "Survived";
+                 });
+          }
+
+      // Event handler when the mouse is out
+          function onleave(){
+             if (popup != null){
+                popup.remove();
+             }
+          }        
+          
+  }
+
+/* --------------------------
+     Function to plot the summary passenger data 
+     with respect to the gender and cabin classes.
+     This function is designed to extract a clear finding
+     about chance of survivability in relation to 
+     gender and cabin class. The percentage of survivability
+     is plotted in a sorted order to make it evident who
+     had survived most.
+  ---------------------------- */  
+function draw_summary_bars(data) { 
+
+      //Clear the content of the svg element
+          svg.selectAll("*").remove();
+
+      // Dimple.js Chart construction code
+
+          var myChart = new dimple.chart(svg, data);
+          myChart.setBounds(80, 100, 350, 350);
+          var y = myChart.addCategoryAxis("y", "Composite"); 
+          y.addOrderRule(["female_class1", "female_class2", "female_class3", "male_class1", "male_class2", "male_class3"]);
+
+
+      // Show the survival count as a number
+          var x = myChart.addPctAxis("x", "Count");
+
+         // x.title = "Survival Count by Gender";
+          var cnt = myChart.addSeries("Survived", dimple.plot.bar);
+          var myLegend = myChart.addLegend(400, 30, 50, 200, "right");
+
+          myChart.assignColor(0, "indianred", "rgb(107,148,177)", 0.5)
+          myChart.assignColor(1, "yellowgreen", "rgb(107,148,177)", 0.5)
+
+      // Design mouse hover functionality (overwrite default)
+          cnt.addEventHandler("mouseover", onhover);
+          cnt.addEventHandler("mouseout", onleave);
+
+          var draw_chart = myChart.draw(1000);
+
+      // Change the text for the legends
+          var myLegendShapes = myLegend.shapes;
+          myLegendShapes.selectAll("text").text(function(d){
+                   if (d.key == "0"){return "Not Survived";};
+                   if (d.key == "1"){return "Survived";};
+          });
+
+      // Insert a paragraph to convey the summary finding
+          var x_msg = 175, y_msg = 50, w_msg = 200, h_msg = 50;
+          var summary_msg = svg.append("g");
+          summary_msg.append("rect")
+             .attr("x", x_msg)
+             .attr("y", y_msg)
+             .attr("width", w_msg)
+             .attr("height", h_msg)
+             .attr("rx", 5)
+             .attr("ry", 5)
+             .style("stroke", "black")
+             .style("stroke-width", 0.5)
+             .attr("fill", "white");
+
+          summary_msg.append("text")
+             .attr("x", x_msg + 10)
+             .attr("y", y_msg + 15)
+             .style("font-size", 14)
+             .text("Who survived most?")
+             .append("tspan")
+             .attr("x", x_msg + 10)
+             .attr("y", y_msg + 30)
+             .style("font-size", 12)
+             .text("- Women had better chance of survival")
+             .append("tspan")
+             .attr("x", x_msg + 10)
+             .attr("y", y_msg + 40)
+             .style("font-size", 12)
+             .text("- Upper cabin class had better luck")
+
+      // Displays tool tips on mouse hover
+          var popup;
+
+          function onhover(e){
+          // Get the properties of the selected shape
+             var selx = parseFloat(e.selectedShape.attr("x"));
+             var sely = parseFloat(e.selectedShape.attr("y"));
+
+         // Set the size and position of the popup
+             var width = 100;
+             var height = 55;
+             var x = selx + 10;
+             var y = sely - height/2;
+             var serv = e.seriesValue[0];
+             var composite = e.yValue;
+             var passengers = dimple.filterData(data, "Composite", composite);
+             var cnt_total = passengers.length;
+             passengers = dimple.filterData(passengers, "Survived", serv);
+             var cnt = passengers.length;
+             var percentage = (cnt/cnt_total * 100).toPrecision(2);
+             var gender = passengers[0].Sex;
+             var pclass = passengers[0].Pclass;
+
+        // Append a group element
+             popup = svg.append("g");
+
+        // Append a rect element to encompas the message
+             popup.append("rect")
+                .attr("x", x + 5)
+                .attr("y", y - 5)
+                .attr("rx", 5)
+                .attr("ry", 5)
+                .attr("width", width)
+                .attr("height", height)
+                .style("stroke", "black")
+                .style("stroke-width", 0.5)
+                .attr("fill", "white");
+
+        // Append a text element to show the tooltips
+             popup.append("text")
+                .attr("x", x + 10)
+                .attr("y", y +10)
+                .style("font-size", 12)
+                .text("Sex: " + gender)
+                .append("tspan")
+                .attr("x", x + 10)
+                .attr("y", y + 20)
+                .style("font-size", 12)
+                .text("Pclass: " + pclass)
+                .append("tspan")
+                .attr("x", x+ 10)
+                .attr("y", y + 30)
+                .style("font-size", 12)
+                .text("Count: " + cnt + " (" + percentage + "%)")
+                .append("tspan")
+                .attr("x", x+ 10)
+                .attr("y", y + 40)
+                .style("font-size", 12)
+                .text(function(){
+                     if (serv === "0") return "Not Survived";
+                     if (serv === "1") return "Survived";
+                 });
+          }
+
+          function onleave(){
+          // Function to handle mouse exit event
+             if (popup != null){
+                popup.remove();
+             }
+          }        
+  }
+
+</script>
+</head>
+
+<style>
+   title {
+     text-align: center;
+   }
+   button {
+     position: absolute;
+     margin-left: 6px;
+     margin-top: 6px;
+   } 
+</style>
+
+<body>
+<button id="gender" style="margin-left: 10px">Gender</button>
+<button id="embark" style="margin-left: 75px">Embarkation</button>
+<button id="pclass" style="margin-left: 170px">Cabin Class</button>
+<button id="summary" style="margin-left: 262px">Summary</button>
+
+
+<script>
+   var svg = d3.select("body")
+       .append("svg")
+       .attr("width", 500)
+       .attr("height", 500)
+       .style("background-color", "PeachPuff");
+
+   <!--Display the survival data by gender - by default-->
+   d3.csv("titanic_data.csv", type, draw_gender_bars);
+
+   d3.select("#gender").on("click", function(){
+       d3.csv("titanic_data.csv", type, draw_gender_bars);
+   });
+
+   d3.select("#embark").on("click", function(){
+       d3.csv("titanic_data.csv", type, draw_embark_bars);
+   });
+
+   d3.select("#pclass").on("click", function(){
+       d3.csv("titanic_data.csv", type, draw_pclass_bars);
+   });
+   d3.select("#summary").on("click", function(){
+       d3.csv("titanic_data.csv", type, draw_summary_bars);
+   });
+
+</script>
+
+</body>
+</html> 
+
+
